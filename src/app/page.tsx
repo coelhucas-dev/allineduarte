@@ -31,6 +31,8 @@ export default function Home() {
             title={"Atendimento"}
             clinicName="Clínica Prontomed Lagoa"
             street={"R. Orlando Carioni, 64"}
+            hrefCall="tel:+554832320470"
+            hrefMap="https://www.google.com/maps/@-27.6058676,-48.466518,3a,75y,247.16h,83.74t/data=!3m6!1e1!3m4!1spjS_4B_CjG4TKYQwgCdKng!2e0!7i16384!8i8192?entry=ttu"
             city={"Lagoa da Conceição Florianópolis"}
           />
         </section>

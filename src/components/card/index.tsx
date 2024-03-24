@@ -5,6 +5,8 @@ type ICard = {
   street: string;
   city: string;
   clinicName: string;
+  hrefCall: string;
+  hrefMap: string;
   style: string;
 };
 
@@ -41,12 +43,16 @@ export default function Card(props: ICard) {
         </p>
       </div>
       <div className="mt-3 w-[80%] m-auto flex justify-evenly">
-        <button className="px-5 py-1 bg-white shadow-md hover:shadow-lg shadow-slate-200 text-main text-[14px] font-bold">
-          LIGAR
-        </button>
-        <button className="px-5 py-1 bg-white shadow-md hover:shadow-lg shadow-slate-200 text-main text-[14px] font-bold">
-          MAPA
-        </button>
+        <a href={props.hrefCall}>
+          <button className="px-5 py-1 bg-white shadow-md hover:shadow-lg shadow-slate-200 text-main text-[14px] font-bold">
+            LIGAR
+          </button>
+        </a>
+        <a href={props.hrefMap}>
+          <button className="px-5 py-1 bg-white shadow-md hover:shadow-lg shadow-slate-200 text-main text-[14px] font-bold">
+            MAPA
+          </button>
+        </a>
       </div>
     </div>
   );
