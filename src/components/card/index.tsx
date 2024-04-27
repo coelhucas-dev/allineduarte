@@ -1,14 +1,5 @@
+import { ICard } from "@/types/card.type";
 import Image from "next/image";
-
-type ICard = {
-  title: string;
-  street: string;
-  city: string;
-  clinicName: string;
-  hrefCall: string;
-  hrefMap: string;
-  style: string;
-};
 
 export default function Card(props: ICard) {
   return (
@@ -38,6 +29,9 @@ export default function Card(props: ICard) {
           {props.clinicName}
         </h1>
         <p className="font-serif text-[18px] text-[#5b6f82]">{props.street}</p>
+        <p className="font-serif text-[18px] text-[#5b6f82] text-wrap">
+          {props.district}
+        </p>
         <p className="font-serif text-[18px] text-[#5b6f82] text-wrap">
           {props.city}
         </p>
