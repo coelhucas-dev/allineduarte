@@ -1,3 +1,5 @@
+"use client";
+
 import { useEffect, useState } from "react";
 import { IClinic } from "@/types/clinic.type";
 import Card from "../card";
@@ -29,8 +31,8 @@ export default function Clinics() {
           street={clinic.address1}
           district={clinic.address2}
           city={clinic.city}
-          hrefCall="tel:+554832320470"
-          hrefMap="https://www.google.com/maps/@-27.6058676,-48.466518,3a,75y,247.16h,83.74t/data=!3m6!1e1!3m4!1spjS_4B_CjG4TKYQwgCdKng!2e0!7i16384!8i8192?entry=ttu"
+          hrefCall={`tel:${clinic.country_code}${clinic.phone}`}
+          hrefMap={clinic.maps_link}
         />
       ))}
     </>
