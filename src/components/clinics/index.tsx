@@ -17,8 +17,13 @@ export default function Clinics() {
       });
   }, []);
 
-  if (isLoading) return <p>Loading...</p>;
-  if (!clinics) return <p>No profile data</p>;
+  if (isLoading) return <p className="text-white">Carregando...</p>;
+  if (!clinics)
+    return (
+      <p className="text-white">
+        Não foi encontrado nenhuma clínica no momento
+      </p>
+    );
 
   return (
     <>
