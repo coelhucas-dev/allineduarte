@@ -1,15 +1,7 @@
 import Clinics from "@/components/clinics";
 import Footer from "@/components/footer";
 import Header from "@/components/header";
-
-import {
-  Dialog,
-  DialogContent,
-  DialogTitle,
-  DialogTrigger,
-  DialogHeader,
-  DialogDescription,
-} from "@/components/ui/dialog";
+import Link from "next/link";
 
 export default function Home() {
   return (
@@ -26,21 +18,12 @@ export default function Home() {
             <p>CRN-10: 11474P</p>
           </div>
           <div className="mt-12">
-            <Dialog>
-              <DialogTrigger>
-                <button className="px-8 py-4 text-[13px] text-white font-black bg-gradient-to-r from-[#268a7b] to-[#0defca] hover:shadow-lg">
-                  AGENDAR AGORA
-                </button>
-              </DialogTrigger>
-              <DialogContent>
-                <DialogHeader>
-                  <DialogTitle>Agendamento</DialogTitle>
-                  <DialogDescription>
-                    Agende sua consulta agora!
-                  </DialogDescription>
-                </DialogHeader>
-              </DialogContent>
-            </Dialog>
+            <Link
+              href="https://wa.me/5548996126300?text=Ol%C3%A1%20Dra.%20Alline%20Duarte,%20gostaria%20de%20agendar%20uma%20consulta!"
+              className="px-8 py-4 text-[13px] text-white font-black bg-gradient-to-r from-[#268a7b] to-[#0defca] hover:shadow-lg"
+            >
+              AGENDAR AGORA
+            </Link>
           </div>
           <div className="w-full mt-10 h-[0.5px] bg-gradient-to-r from-transparent via-white to-transparent"></div>
           <Clinics />
