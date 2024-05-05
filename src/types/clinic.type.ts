@@ -11,4 +11,11 @@ export type IClinic = {
   maps_link: string;
   phone: string;
   plans: IPlan;
+  clinic_hours: IClinicHours[];
+};
+
+export type IClinicHours = {
+  day_of_week: number;
+  opening_time: null;
+  closing_time: null;
 };
