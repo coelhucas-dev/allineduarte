@@ -4,7 +4,7 @@ import Image from "next/image";
 export default function Card(props: ICard) {
   return (
     <div
-      className={`${props.style} hover:shadow-slate-300 bg-white pb-10 w-[250px] h-[360px] shadow-xl shadow-slate-200 m-auto`}
+      className={`${props.style} hover:shadow-slate-300 bg-white pb-10 w-[250px] h-[360px] shadow-xl shadow-slate-200 m-auto rounded-md`}
     >
       <Image
         className="mx-auto pt-10 pb-5"
@@ -38,12 +38,12 @@ export default function Card(props: ICard) {
       </div>
       <div className="mt-3 w-[80%] m-auto flex justify-evenly">
         <a href={props.hrefCall}>
-          <button className="px-5 py-1 bg-white shadow-md hover:shadow-lg shadow-slate-200 text-main text-[14px] font-bold">
+          <button className="px-5 py-1 bg-white shadow-md hover:shadow-lg shadow-slate-200 text-main text-[14px] font-bold rounded-sm">
             LIGAR
           </button>
         </a>
         <a href={props.hrefMap}>
-          <button className="px-5 py-1 bg-white shadow-md hover:shadow-lg shadow-slate-200 text-main text-[14px] font-bold">
+          <button className="px-5 py-1 bg-white shadow-md hover:shadow-lg shadow-slate-200 text-main text-[14px] font-bold rounded-sm">
             MAPA
           </button>
         </a>
