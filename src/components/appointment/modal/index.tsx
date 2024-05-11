@@ -1,5 +1,5 @@
 "use client";
-import { I18nProvider } from "@react-aria/i18n";
+import { I18nProvider, useLocale } from "@react-aria/i18n";
 import {
   Button,
   Input,
@@ -13,11 +13,19 @@ import {
   Select,
   SelectItem,
 } from "@nextui-org/react";
-import { today, getLocalTimeZone } from "@internationalized/date";
+import {
+  today,
+  isWeekend,
+  getDayOfWeek,
+  getLocalTimeZone,
+  DateValue,
+  isSameDay,
+  parseAbsolute,
+} from "@internationalized/date";
 import { ChangeEvent, useEffect, useState } from "react";
-import { IAppointment, IClinic } from "@/types";
+import { IClinic, IPlan, IScheduled } from "@/types";
 
-const countryCode = [
+const countryCodes = [
   {
     key: "br",
     code: "+55",
@@ -25,28 +33,43 @@ const countryCode = [
   },
 ];
 
+interface IHour {
+  hour: number;
+  minute: number;
+  disabled: boolean;
+}
+
 interface LocalCache {
   clinics: {
     [key: string | number]: IClinic;
   };
-  appointments: IAppointment[];
+  appointments: IScheduled[];
 }
 
 export default function AppointmentModal() {
+  const { isOpen, onOpen, onOpenChange } = useDisclosure();
+
+  const [clinicsLoading, setClinicsLoading] = useState(true);
+  const [currentClinic, setCurrentClinic] = useState<IClinic | null>();
   const [clinics, setClinics] = useState<IClinic[]>([]);
 
-  const { isOpen, onOpen, onOpenChange } = useDisclosure();
-  const [clinicsLoading, setClinicsLoading] = useState(true);
-  const [appointmentDateDisabled, setAppointmentDateDisabled] = useState(true);
+  const [planInputDisabled, setPlanInputDisabled] = useState(true);
+  const [currentPlan, setCurrentPlan] = useState<IPlan | null>();
 
-  const [appointments, setAppointments] = useState<IAppointment[]>([]);
+  const [hourInputDisabled, setHourInputDisabled] = useState(true);
+  const [availableHours, setAvailableHours] = useState<IHour[]>([]);
+
+  const [appointmentDateDisabled, setAppointmentDateDisabled] = useState(true);
+  const [appointments, setAppointments] = useState<IScheduled[]>([]);
 
   const [localCache, setLocalCache] = useState<LocalCache>({
     clinics: {},
     appointments: [],
   });
 
-  const [availablePlans, setAvailablePlans] = useState({});
+  const [plans, setPlans] = useState<IPlan[]>([]);
+
+  const { locale } = useLocale();
 
   useEffect(() => {
     fetch("http://localhost:8000/clinic")
@@ -57,22 +80,138 @@ export default function AppointmentModal() {
       });
   }, []);
 
-  const loadClinicAvailablePlans = (clinic: IClinic) => {
-    if (localCache.clinics[clinic.id]) {
-      setAvailablePlans(localCache.clinics[clinic.id].plans);
-      return;
+  const isDateUnavailable = (date: DateValue) => {
+    if (currentClinic == null) {
+      return true;
     }
-    setAvailablePlans(clinic.plans);
+    return (
+      isWeekend(date, locale) ||
+      !currentClinic.clinic_hours.some(
+        (clinicHour) => getDayOfWeek(date, locale) - 1 == clinicHour.day_of_week
+      )
+    );
   };
 
-  const loadAvailableAppointmentDates = async () => {
+  const loadClinicAvailablePlans = (clinic: IClinic) => {
+    if (localCache.clinics[clinic.id]) {
+      setPlans(localCache.clinics[clinic.id].plans);
+      setPlanInputDisabled(false);
+      return;
+    }
+    setPlans(clinic.plans);
+
+    if (plans) setPlanInputDisabled(false);
+  };
+
+  const fetchAppointments = async () => {
     fetch("http://localhost:8000/appointment/get_scheduled/")
       .then((res) => res.json())
       .then((data) => {
-        setAppointments(data);
+        setAppointments(data.scheduled);
       });
 
-    if (appointments) setAppointmentDateDisabled(false);
+    if (appointments) {
+      setAppointmentDateDisabled(false);
+    }
+  };
+
+  const isEqualHour = (localHour: IHour, unavailableHour: IHour): boolean => {
+    return (
+      localHour.hour === unavailableHour.hour &&
+      localHour.minute === unavailableHour.minute
+    );
+  };
+
+  const isHourUnavailable = (
+    localHour: IHour,
+    unavailableHours: IHour[]
+  ): boolean => {
+    return unavailableHours.some((unavailableHour: IHour) => {
+      return isEqualHour(localHour, unavailableHour);
+    });
+  };
+
+  const loadAvailableHours = (date: DateValue) => {
+    if (!currentClinic) {
+      setAvailableHours([]);
+      setHourInputDisabled(true);
+      return;
+    }
+    let unavailableHours: IHour[] = [];
+    appointments.map((appointment: IScheduled) => {
+      let appointmentTime = parseAbsolute(
+        new Date(appointment.appointment.time).toISOString(),
+        getLocalTimeZone()
+      );
+      if (isSameDay(appointmentTime, date)) {
+        unavailableHours.push({
+          hour: appointmentTime.hour,
+          minute: appointmentTime.minute,
+          disabled: true,
+        });
+      }
+    });
+
+    let clinicHour = currentClinic?.clinic_hours.find(
+      (clinicHour) => getDayOfWeek(date, locale) - 1 == clinicHour.day_of_week
+    );
+
+    if (!clinicHour) {
+      setAvailableHours([]);
+      setHourInputDisabled(true);
+      return;
+    }
+
+    let localTime = {
+      hour: parseInt(clinicHour.opening_time.split(":")[0]),
+      minute: parseInt(clinicHour.opening_time.split(":")[1]),
+      disabled: false,
+    };
+    let closingTime = {
+      hour: parseInt(clinicHour.closing_time.split(":")[0]),
+      minute: parseInt(clinicHour.closing_time.split(":")[1]),
+      disabled: false,
+    };
+    let hours: IHour[] = [];
+    console.log(unavailableHours);
+    while (
+      localTime.hour < closingTime.hour &&
+      (localTime.minute < closingTime.minute ||
+        localTime.hour < closingTime.hour)
+    ) {
+      if (isHourUnavailable(localTime, unavailableHours)) {
+        hours.push({
+          hour: localTime.hour,
+          minute: localTime.minute,
+          disabled: true,
+        });
+      } else {
+        hours.push({
+          hour: localTime.hour,
+          minute: localTime.minute,
+          disabled: false,
+        });
+      }
+      localTime.hour++;
+    }
+    setAvailableHours(hours);
+    setHourInputDisabled(false);
+  };
+
+  const handleAppointmentDateChange = (date: DateValue) => {
+    loadAvailableHours(date);
+  };
+
+  const handlePlanSelectChange = async (e: ChangeEvent<HTMLSelectElement>) => {
+    const plan = plans.find((plan) => {
+      if (!e.target.value) return false;
+      return JSON.parse(e.target.value) == plan.id;
+    });
+    if (!plan) {
+      setCurrentPlan(null);
+      return;
+    }
+    setCurrentPlan(plan);
   };
 
   const handleClinicSelectChange = async (
@@ -84,14 +223,16 @@ export default function AppointmentModal() {
     });
 
     if (!clinic) {
-      setAvailablePlans({});
+      setPlans([]);
       setAppointments([]);
       setAppointmentDateDisabled(true);
+      setPlanInputDisabled(true);
+      setCurrentClinic(null);
       return;
     }
-
+    setCurrentClinic(clinic);
     loadClinicAvailablePlans(clinic);
-    await loadAvailableAppointmentDates();
+    await fetchAppointments();
     setLocalCache({
       clinics: {
         ...localCache.clinics,
@@ -100,6 +241,20 @@ export default function AppointmentModal() {
       appointments: appointments,
     });
   };
+
+  const formatToClockFormat = (hours: number, minutes: number): string => {
+    const formattedHours = hours < 10 ? `0${hours}` : `${hours}`;
+    const formattedMinutes = minutes < 10 ? `0${minutes}` : `${minutes}`;
+    return `${formattedHours}:${formattedMinutes}`;
+  };
+
+  const handleSubmitAppointment = () => {
+    console.log({
+      clinic: currentClinic,
+      plan: currentPlan,
+    });
+  };
+
   return (
     <>
       <Button
@@ -159,9 +314,15 @@ export default function AppointmentModal() {
                       className="w-[48%]"
                       label={"Código do país"}
                     >
-                      <SelectItem key={"br"} value={"br"}>
-                        +55 | Brasil
-                      </SelectItem>
+                      {countryCodes.map((countryCode) => (
+                        <SelectItem
+                          key={countryCode.key}
+                          value={countryCode.key}
+                          textValue={`${countryCode.code} | ${countryCode.country}`}
+                        >
+                          {countryCode.code} | {countryCode.country}
+                        </SelectItem>
+                      ))}
                     </Select>
                     <Input
                       isRequired
@@ -190,20 +351,64 @@ export default function AppointmentModal() {
                       </SelectItem>
                     ))}
                   </Select>
+                  <Select
+                    isRequired
+                    isDisabled={planInputDisabled}
+                    onChange={(e) => handlePlanSelectChange(e)}
+                    variant="flat"
+                    placeholder="Selecione o plano desejado"
+                    label={"Plano"}
+                  >
+                    {plans.map((plan: IPlan) => (
+                      <SelectItem
+                        key={plan.id}
+                        value={JSON.stringify(plan)}
+                        textValue={`${plan.name} - ${plan.duration}`}
+                      >
+                        {plan.name} - {plan.duration}
+                      </SelectItem>
+                    ))}
+                  </Select>
                   <div>
                     <label>
                       <I18nProvider locale="en-GB">
                         <DatePicker
                           isRequired
+                          onChange={(date) => handleAppointmentDateChange(date)}
                           isDisabled={appointmentDateDisabled}
                           label="Pretenção de data para a consulta"
                           color="default"
                           variant={"flat"}
-                          defaultValue={today(getLocalTimeZone())}
+                          minValue={today(getLocalTimeZone())}
+                          isDateUnavailable={isDateUnavailable}
                         />
                       </I18nProvider>
                     </label>
-                  </div>{" "}
+                  </div>
+                  <Select
+                    isRequired
+                    isDisabled={hourInputDisabled}
+                    variant="flat"
+                    placeholder="Selecione o horário desejado para consulta"
+                    label={"Horário para consulta"}
+                  >
+                    {availableHours.map((hour) => (
+                      <SelectItem
+                        key={`${hour.hour}-${hour.minute}`}
+                        value={JSON.stringify(hour)}
+                        isDisabled={hour.disabled}
+                        textValue={formatToClockFormat(hour.hour, hour.minute)}
+                      >
+                        {hour.disabled ? (
+                          <del>
+                            {formatToClockFormat(hour.hour, hour.minute)}
+                          </del>
+                        ) : (
+                          formatToClockFormat(hour.hour, hour.minute)
+                        )}
+                      </SelectItem>
+                    ))}
+                  </Select>
                 </form>
               </ModalBody>
               <ModalFooter>
@@ -217,6 +422,7 @@ export default function AppointmentModal() {
                 </Button>
                 <Button
                   onPress={onClose}
+                  onSubmit={() => handleSubmitAppointment()}
                   className="bg-[#3fa98d] text-white rounded-sm"
                 >
                   Agendar

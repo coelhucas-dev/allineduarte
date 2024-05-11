@@ -22,7 +22,7 @@ export default function Clinics() {
   if (!clinics) return <p>No profile data</p>;
 
   return (
-    <>
+    <div className="flex">
       {clinics.map((clinic: IClinic) => (
         <Card
           key={clinic.id}
@@ -36,6 +36,6 @@ export default function Clinics() {
           hrefMap={clinic.maps_link}
         />
       ))}
-    </>
+    </div>
   );
 }

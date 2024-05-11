@@ -10,12 +10,12 @@ export type IClinic = {
   country_code: string;
   maps_link: string;
   phone: string;
-  plans: IPlan;
+  plans: IPlan[];
   clinic_hours: IClinicHours[];
 };
 
 export type IClinicHours = {
   day_of_week: number;
-  opening_time: null;
-  closing_time: null;
+  opening_time: string;
+  closing_time: string;
 };

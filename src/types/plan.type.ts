@@ -1,1 +1,5 @@
-export type IPlan = {};
+export type IPlan = {
+  id: string | number;
+  name: string;
+  duration: any;
+};
