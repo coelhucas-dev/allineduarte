@@ -1,5 +1,6 @@
 import Link from "next/link";
 import Image from "next/image";
+import { Button } from "../ui/button";
 
 export default function Header() {
   return (
@@ -17,14 +18,14 @@ export default function Header() {
               />
             </Link>
           </div>
-          <div className="flex bg-white px-[25px] py-1.5 shadow-md hover:shadow-md hover:shadow-slate-600 z-10 md:mr-40 rounded-sm">
+          <Button className="flex bg-white px-[25px] py-1.5 shadow-md hover:shadow-md hover:shadow-slate-600 z-10 md:mr-40 rounded-sm">
             <Link
               className="text-[#265d58] text-[13px] font-extrabold text-center "
               href="https://wa.me/5548996126300?text=Ol%C3%A1%20Dra.%20Alline%20Duarte,%20gostaria%20de%20agendar%20uma%20consulta!)"
             >
               WHATSAPP
             </Link>
-          </div>
+          </Button>
         </div>
       </nav>
     </header>
