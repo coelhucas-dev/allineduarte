@@ -1,29 +1,56 @@
 "use client";
-import { I18nProvider, useLocale } from "@react-aria/i18n";
+import { Button } from "@/components/ui/button";
 import {
-  Button,
-  Input,
-  DatePicker,
-  Modal,
-  ModalBody,
-  ModalContent,
-  ModalFooter,
-  ModalHeader,
-  useDisclosure,
+  Dialog,
+  DialogClose,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import {
   Select,
+  SelectContent,
   SelectItem,
-} from "@nextui-org/react";
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { IClinic, IScheduled, IPlan } from "@/types";
 import {
-  today,
+  DateValue,
   isWeekend,
   getDayOfWeek,
-  getLocalTimeZone,
-  DateValue,
-  isSameDay,
   parseAbsolute,
+  getLocalTimeZone,
+  isSameDay,
+  parseAbsoluteToLocal,
 } from "@internationalized/date";
-import { ChangeEvent, useEffect, useState } from "react";
-import { IClinic, IPlan, IScheduled } from "@/types";
+import { useLocale } from "@react-aria/i18n";
+import { useState, useEffect } from "react";
+import { useForm } from "react-hook-form";
+import { z } from "zod";
+import { zodResolver } from "@hookform/resolvers/zod";
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from "@/components/ui/form";
+import { toast } from "@/components/ui/use-toast";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import { cn } from "@/lib/utils";
+import { format } from "date-fns";
+import { CalendarIcon } from "lucide-react";
+import { Calendar } from "@/components/ui/calendar";
 
 const countryCodes = [
   {
@@ -46,8 +73,35 @@ interface LocalCache {
   appointments: IScheduled[];
 }
 
+const formSchema = z.object({
+  fullName: z.string().min(1),
+  email: z
+    .string()
+    .min(1)
+    .email(
+      "Esse não é um email válido, por favor digite um email válido e tente novamente!",
+    ),
+  dateOfBirth: z.date({
+    required_error: "Uma data de nascimento é necessária.",
+  }),
+  countryCode: z.string(),
+  phoneNumber: z.string(),
+  clinic: z.string(),
+  plan: z.string(),
+  appointmentDate: z.date(),
+  appointmentHour: z.string(),
+});
+
 export default function AppointmentModal() {
-  const { isOpen, onOpen, onOpenChange } = useDisclosure();
+  const form = useForm<z.infer<typeof formSchema>>({
+    mode: "onChange",
+    resolver: zodResolver(formSchema),
+    defaultValues: {
+      fullName: "",
+      email: "",
+      phoneNumber: "",
+    },
+  });
 
   const [clinicsLoading, setClinicsLoading] = useState(true);
   const [currentClinic, setCurrentClinic] = useState<IClinic | null>();
@@ -80,6 +134,18 @@ export default function AppointmentModal() {
       });
   }, []);
 
+  const onFormSubmit = (values: z.infer<typeof formSchema>) => {
+    console.log(values);
+    toast({
+      title: "You submitted the following values:",
+      description: (
+        <pre className="mt-2 w-[340px] rounded-md bg-slate-950 p-4">
+          <code className="text-white">{JSON.stringify(values, null, 2)}</code>
+        </pre>
+      ),
+    });
+  };
+
   const isDateUnavailable = (date: DateValue) => {
     if (currentClinic == null) {
       return true;
@@ -87,7 +153,8 @@ export default function AppointmentModal() {
     return (
       isWeekend(date, locale) ||
       !currentClinic.clinic_hours.some(
-        (clinicHour) => getDayOfWeek(date, locale) - 1 == clinicHour.day_of_week
+        (clinicHour) =>
+          getDayOfWeek(date, locale) - 1 == clinicHour.day_of_week,
       )
     );
   };
@@ -124,15 +191,21 @@ export default function AppointmentModal() {
 
   const isHourUnavailable = (
     localHour: IHour,
-    unavailableHours: IHour[]
+    unavailableHours: IHour[],
   ): boolean => {
     return unavailableHours.some((unavailableHour: IHour) => {
       return isEqualHour(localHour, unavailableHour);
     });
   };
 
-  const loadAvailableHours = (date: DateValue) => {
-    if (!currentClinic) {
+  const unloadAvailableHours = () => {
+    setAvailableHours([]);
+    setHourInputDisabled(true);
+    return;
+  };
+
+  const loadAvailableHours = (date: DateValue | undefined) => {
+    if (!currentClinic || !date) {
       setAvailableHours([]);
       setHourInputDisabled(true);
       return;
@@ -141,7 +214,7 @@ export default function AppointmentModal() {
     appointments.map((appointment: IScheduled) => {
       let appointmentTime = parseAbsolute(
         new Date(appointment.appointment.time).toISOString(),
-        getLocalTimeZone()
+        getLocalTimeZone(),
       );
       if (isSameDay(appointmentTime, date)) {
         unavailableHours.push({
@@ -153,7 +226,7 @@ export default function AppointmentModal() {
     });
 
     let clinicHour = currentClinic?.clinic_hours.find(
-      (clinicHour) => getDayOfWeek(date, locale) - 1 == clinicHour.day_of_week
+      (clinicHour) => getDayOfWeek(date, locale) - 1 == clinicHour.day_of_week,
     );
 
     if (!clinicHour) {
@@ -202,10 +275,9 @@ export default function AppointmentModal() {
     loadAvailableHours(date);
   };
 
-  const handlePlanSelectChange = async (e: ChangeEvent<HTMLSelectElement>) => {
+  const handlePlanSelectChange = async (id: string | number) => {
     const plan = plans.find((plan) => {
-      if (!e.target.value) return false;
-      return JSON.parse(e.target.value) == plan.id;
+      return id == plan.id;
     });
     if (!plan) {
       setCurrentPlan(null);
@@ -214,12 +286,10 @@ export default function AppointmentModal() {
     setCurrentPlan(plan);
   };
 
-  const handleClinicSelectChange = async (
-    e: ChangeEvent<HTMLSelectElement>
-  ) => {
+  const handleClinicSelectChange = async (clinicId: string | number) => {
     const clinic = clinics.find((clinic) => {
-      if (!e.target.value) return false;
-      return JSON.parse(e.target.value) == clinic.id;
+      if (!clinicId) return false;
+      return clinicId == clinic.id;
     });
 
     if (!clinic) {
@@ -248,190 +318,335 @@ export default function AppointmentModal() {
     return `${formattedHours}:${formattedMinutes}`;
   };
 
-  const handleSubmitAppointment = () => {
-    console.log({
-      clinic: currentClinic,
-      plan: currentPlan,
-    });
-  };
-
   return (
-    <>
-      <Button
-        onPress={onOpen}
-        className="px-8 py-4 text-[13px] text-white font-black bg-gradient-to-r from-[#268a7b] to-[#0defca] hover:shadow-lg rounded-sm"
-      >
-        AGENDAR AGORA
-      </Button>
-      <Modal
-        isOpen={isOpen}
-        onOpenChange={onOpenChange}
-        placement="top-center"
-        className="rounded-md"
-      >
-        <ModalContent>
-          {(onClose) => (
-            <>
-              <ModalHeader className="flex flex-col gap-1">
-                Agende agora sua consulta!
-              </ModalHeader>
-              <ModalBody>
-                <form className="space-y-3">
-                  <Input
-                    isRequired
-                    autoFocus
-                    label="Nome completo"
-                    placeholder="Digite seu nome completo"
-                    className="rounded-sm"
-                    variant="flat"
-                  />
-                  <Input
-                    isRequired
-                    autoFocus
-                    label="Email"
-                    placeholder="Digite seu email"
-                    variant="flat"
-                  />
-                  <div>
-                    <label>
-                      <I18nProvider locale="en-GB">
-                        <DatePicker
-                          isRequired
-                          showMonthAndYearPickers
-                          label="Data de nascimento"
-                          color="default"
-                          variant={"flat"}
-                          defaultValue={today(getLocalTimeZone())}
+    <Dialog>
+      <DialogTrigger asChild>
+        <Button className="px-6 py-4 text-[13px] text-white font-black bg-gradient-to-r from-[#268a7b] to-[#0defca] hover:shadow-lg rounded-sm">
+          AGENDAR AGORA
+        </Button>
+      </DialogTrigger>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>Agende agora sua consulta!</DialogTitle>
+          <DialogDescription>Faça aqui seu pré agendamento.</DialogDescription>
+        </DialogHeader>
+        <div className="flex items-center space-x-2">
+          <Form {...form}>
+            <form
+              onSubmit={form.handleSubmit(onFormSubmit)}
+              className="space-y-3 w-full"
+            >
+              <FormField
+                control={form.control}
+                name="fullName"
+                render={({ field }) => (
+                  <FormItem className="space-y-0 text-gray-700">
+                    <FormLabel>Nome Completo</FormLabel>
+                    <FormControl>
+                      <Input
+                        id="fullName"
+                        required
+                        autoFocus
+                        placeholder="Digite seu nome completo"
+                        className="rounded-sm w-full"
+                        {...field}
+                      />
+                    </FormControl>
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name={"email"}
+                render={({ field }) => (
+                  <FormItem className="space-y-0 text-gray-700">
+                    <FormLabel>Email</FormLabel>
+                    <FormControl>
+                      <Input
+                        id="email"
+                        required
+                        autoFocus
+                        placeholder="Digite seu melhor email"
+                        className="rounded-sm w-full"
+                        {...field}
+                      />
+                    </FormControl>
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name={"dateOfBirth"}
+                render={({ field }) => (
+                  <FormItem className="flex flex-col space-y-1 text-gray-700">
+                    <FormLabel>Data de nascimento</FormLabel>
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <FormControl>
+                          <Button
+                            variant={"outline"}
+                            className={cn(
+                              "w-full pl-3 text-left font-normal",
+                              !field.value && "text-muted-foreground",
+                            )}
+                          >
+                            {field.value ? (
+                              format(field.value, "PPP")
+                            ) : (
+                              <span>Escolha uma data</span>
+                            )}
+                            <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                          </Button>
+                        </FormControl>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-auto p-0" align="center">
+                        <Calendar
+                          captionLayout="dropdown-buttons"
+                          fromYear={1900}
+                          mode="single"
+                          selected={field.value}
+                          onSelect={field.onChange}
+                          disabled={(date) =>
+                            date > new Date() || date < new Date("1900-01-01")
+                          }
+                          initialFocus
                         />
-                      </I18nProvider>
-                    </label>
-                  </div>
-                  <div className="flex flex-row gap-3">
-                    <Select
-                      isRequired
-                      variant="flat"
-                      placeholder="País"
-                      className="w-[48%]"
-                      label={"Código do país"}
-                    >
-                      {countryCodes.map((countryCode) => (
-                        <SelectItem
-                          key={countryCode.key}
-                          value={countryCode.key}
-                          textValue={`${countryCode.code} | ${countryCode.country}`}
+                      </PopoverContent>
+                    </Popover>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <div className="flex space-x-2">
+                <FormField
+                  control={form.control}
+                  name="countryCode"
+                  render={({ field }) => (
+                    <FormItem className="space-y-0 text-gray-700 w-[45%]">
+                      <FormLabel>Código de país</FormLabel>
+                      <FormControl>
+                        <Select
+                          onValueChange={(value) => {
+                            return field.onChange(value);
+                          }}
+                          defaultValue={field.value}
                         >
-                          {countryCode.code} | {countryCode.country}
-                        </SelectItem>
-                      ))}
-                    </Select>
-                    <Input
-                      isRequired
-                      autoFocus
-                      label="Celular"
-                      className="pr-[-2px]"
-                      placeholder="Digite seu número (com DDD)"
-                      variant="flat"
-                    />
-                  </div>
-                  <Select
-                    isRequired
-                    isDisabled={clinicsLoading}
-                    variant="flat"
-                    onChange={(e) => handleClinicSelectChange(e)}
-                    placeholder="Selecione a clínica desejada"
-                    label={"Clínica"}
-                  >
-                    {clinics.map((clinic: IClinic) => (
-                      <SelectItem
-                        key={clinic.id}
-                        value={JSON.stringify(clinic)}
-                        textValue={`${clinic.name} - ${clinic.address2}`}
-                      >
-                        {clinic.name} - {clinic.address2}
-                      </SelectItem>
-                    ))}
-                  </Select>
-                  <Select
-                    isRequired
-                    isDisabled={planInputDisabled}
-                    onChange={(e) => handlePlanSelectChange(e)}
-                    variant="flat"
-                    placeholder="Selecione o plano desejado"
-                    label={"Plano"}
-                  >
-                    {plans.map((plan: IPlan) => (
-                      <SelectItem
-                        key={plan.id}
-                        value={JSON.stringify(plan)}
-                        textValue={`${plan.name} - ${plan.duration}`}
-                      >
-                        {plan.name} - {plan.duration}
-                      </SelectItem>
-                    ))}
-                  </Select>
-                  <div>
-                    <label>
-                      <I18nProvider locale="en-GB">
-                        <DatePicker
-                          isRequired
-                          onChange={(date) => handleAppointmentDateChange(date)}
-                          isDisabled={appointmentDateDisabled}
-                          label="Pretenção de data para a consulta"
-                          color="default"
-                          variant={"flat"}
-                          minValue={today(getLocalTimeZone())}
-                          isDateUnavailable={isDateUnavailable}
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue placeholder="País" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            {countryCodes.map((countryCode) => (
+                              <SelectItem
+                                key={countryCode.key}
+                                value={countryCode.code}
+                              >
+                                {countryCode.code} | {countryCode.country}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </FormControl>
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="phoneNumber"
+                  render={({ field }) => (
+                    <FormItem className="space-y-0 text-gray-700 w-[55%]">
+                      <FormLabel>Número de celular</FormLabel>
+                      <FormControl>
+                        <Input
+                          id={"phoneNumber"}
+                          required
+                          autoFocus
+                          placeholder="Digite seu número"
+                          className="rounded-sm w-full"
+                          {...field}
                         />
-                      </I18nProvider>
-                    </label>
-                  </div>
-                  <Select
-                    isRequired
-                    isDisabled={hourInputDisabled}
-                    variant="flat"
-                    placeholder="Selecione o horário desejado para consulta"
-                    label={"Horário para consulta"}
-                  >
-                    {availableHours.map((hour) => (
-                      <SelectItem
-                        key={`${hour.hour}-${hour.minute}`}
-                        value={JSON.stringify(hour)}
-                        isDisabled={hour.disabled}
-                        textValue={formatToClockFormat(hour.hour, hour.minute)}
+                      </FormControl>
+                    </FormItem>
+                  )}
+                />
+              </div>
+              <FormField
+                control={form.control}
+                name="clinic"
+                render={({ field }) => (
+                  <FormItem className="space-y-0 text-gray-700 ">
+                    <FormLabel>Selecione uma clínica</FormLabel>
+                    <FormControl>
+                      <Select
+                        onValueChange={(value) => {
+                          handleClinicSelectChange(value);
+                          return field.onChange(value);
+                        }}
                       >
-                        {hour.disabled ? (
-                          <del>
-                            {formatToClockFormat(hour.hour, hour.minute)}
-                          </del>
-                        ) : (
-                          formatToClockFormat(hour.hour, hour.minute)
-                        )}
-                      </SelectItem>
-                    ))}
-                  </Select>
-                </form>
-              </ModalBody>
-              <ModalFooter>
-                <Button
-                  color="danger"
-                  variant="flat"
-                  className="rounded-sm"
-                  onPress={onClose}
-                >
-                  Cancelar
-                </Button>
-                <Button
-                  onPress={onClose}
-                  onSubmit={() => handleSubmitAppointment()}
-                  className="bg-[#3fa98d] text-white rounded-sm"
-                >
-                  Agendar
-                </Button>
-              </ModalFooter>
-            </>
-          )}
-        </ModalContent>
-      </Modal>
-    </>
+                        <FormControl>
+                          <SelectTrigger disabled={clinicsLoading}>
+                            <SelectValue placeholder="Clínica" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          {clinics.map((clinic) => (
+                            <SelectItem key={clinic.id} value={`${clinic.id}`}>
+                              {clinic.name} - {clinic.address2}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </FormControl>
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="plan"
+                render={({ field }) => (
+                  <FormItem className="space-y-0 text-gray-700 ">
+                    <FormLabel>Selecione um plano</FormLabel>
+                    <FormControl>
+                      <Select
+                        onValueChange={(value) => {
+                          handlePlanSelectChange(value);
+                          return field.onChange(value);
+                        }}
+                      >
+                        <FormControl>
+                          <SelectTrigger disabled={planInputDisabled}>
+                            <SelectValue placeholder="Plano" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          {plans.map((plan) => (
+                            <SelectItem key={plan.id} value={`${plan.id}`}>
+                              {plan.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </FormControl>
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name={"appointmentDate"}
+                render={({ field }) => (
+                  <FormItem className="flex flex-col space-y-1 text-gray-700">
+                    <FormLabel>Data de agendamento</FormLabel>
+                    <Popover>
+                      <PopoverTrigger
+                        asChild
+                        disabled={appointmentDateDisabled}
+                      >
+                        <FormControl>
+                          <Button
+                            variant={"outline"}
+                            className={cn(
+                              "w-full pl-3 text-left font-normal",
+                              !field.value && "text-muted-foreground",
+                            )}
+                          >
+                            {field.value ? (
+                              format(field.value, "PPP")
+                            ) : (
+                              <span>Escolha uma data</span>
+                            )}
+                            <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                          </Button>
+                        </FormControl>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-auto p-0" align="start">
+                        <Calendar
+                          mode="single"
+                          selected={field.value}
+                          onSelect={(value) => {
+                            if (!value) {
+                              unloadAvailableHours();
+                              return field.onChange(null);
+                            }
+                            loadAvailableHours(
+                              parseAbsoluteToLocal(value.toISOString()),
+                            );
+                            return field.onChange(value);
+                          }}
+                          disabled={(date) =>
+                            isDateUnavailable(
+                              parseAbsoluteToLocal(date.toISOString()),
+                            ) || date < new Date()
+                          }
+                          initialFocus
+                        />
+                      </PopoverContent>
+                    </Popover>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="appointmentHour"
+                render={({ field }) => (
+                  <FormItem className="space-y-0 text-gray-700 ">
+                    <FormLabel>Selecione o horário para a consulta</FormLabel>
+                    <FormControl>
+                      <Select onValueChange={field.onChange}>
+                        <FormControl>
+                          <SelectTrigger disabled={hourInputDisabled}>
+                            <SelectValue placeholder="Hoário da consulta" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          {availableHours.map((hour) => (
+                            <SelectItem
+                              key={formatToClockFormat(hour.hour, hour.minute)}
+                              disabled={hour.disabled}
+                              value={formatToClockFormat(
+                                hour.hour,
+                                hour.minute,
+                              )}
+                            >
+                              {hour.disabled ? (
+                                <del>
+                                  {formatToClockFormat(hour.hour, hour.minute)}
+                                </del>
+                              ) : (
+                                <>
+                                  {formatToClockFormat(hour.hour, hour.minute)}
+                                </>
+                              )}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </FormControl>
+                  </FormItem>
+                )}
+              />
+
+              <DialogFooter className="sm:justify-end">
+                <DialogClose asChild>
+                  <Button type="button" variant="secondary">
+                    Close
+                  </Button>
+                </DialogClose>
+                <DialogClose asChild>
+                  <Button
+                    className="bg-emerald-700"
+                    type="submit"
+                    variant="default"
+                  >
+                    Agendar
+                  </Button>
+                </DialogClose>
+              </DialogFooter>
+            </form>
+          </Form>
+        </div>
+      </DialogContent>
+    </Dialog>
   );
 }
