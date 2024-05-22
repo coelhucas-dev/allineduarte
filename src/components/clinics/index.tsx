@@ -1,6 +1,6 @@
 "use client";
 
-import { Spinner } from "@nextui-org/react";
+// import { Spinner } from "@nextui-org/react";
 import { useEffect, useState } from "react";
 import { IClinic } from "@/types/clinic.type";
 import Card from "../card";
@@ -18,7 +18,8 @@ export default function Clinics() {
       });
   }, []);
 
-  if (isLoading) return <Spinner color="default" size="md" />;
+  // if (isLoading) return <Spinner color="default" size="md" />;
+  if (isLoading) return <p>Loading...</p>;
   if (!clinics) return <p>No profile data</p>;
 
   return (

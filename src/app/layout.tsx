@@ -1,7 +1,8 @@
 import type { Metadata } from "next";
 import { Lato } from "next/font/google";
-import { Providers } from "./providers";
+// import { Providers } from "./providers";
 import "./globals.css";
+import { cn } from "@/lib/utils";
 
 const lato = Lato({ subsets: ["latin"], weight: "400" });
 
@@ -17,8 +18,9 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body className={lato.className}>
-        <Providers>{children}</Providers>
+      <body className={cn("min-h-screen bg-background", lato.className)}>
+        {/* <Providers>{children}</Providers> */}
+        {children}
       </body>
     </html>
   );
