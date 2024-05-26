@@ -4,7 +4,7 @@ import Image from "next/image";
 export default function Card(props: ICard) {
   return (
     <div
-      className={`${props.style} hover:shadow-slate-300 bg-white pb-10 w-[250px] h-[360px] shadow-xl shadow-slate-200 m-auto rounded-md`}
+      className={`${props.style} hover:shadow-slate-300 bg-white pb-10 w-[250px] h-[360px] shadow-xl shadow-slate-200 mx-auto rounded-md`}
     >
       <Image
         className="mx-auto pt-10 pb-5"
