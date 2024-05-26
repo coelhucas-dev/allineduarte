@@ -13,3 +13,9 @@ export type IScheduled = {
 export type IGetScheduledResponse = {
   scheduled: IScheduled[];
 };
+
+export type ISchedule = {
+  clinic: string;
+  plan: string;
+  time: Date;
+};
