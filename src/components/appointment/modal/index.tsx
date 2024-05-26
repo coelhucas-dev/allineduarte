@@ -1,4 +1,5 @@
 "use client";
+import { cache } from "react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -48,6 +49,7 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
+import { scheduleAppointmentApi, fetchClinicsApi } from "@/lib/api.client";
 import { format } from "date-fns";
 import { CalendarIcon } from "lucide-react";
 import { Calendar } from "@/components/ui/calendar";
@@ -102,6 +104,7 @@ export default function AppointmentModal() {
       phoneNumber: "",
     },
   });
+  const [modalOpen, setModalOpen] = useState(false);
 
   const [clinicsLoading, setClinicsLoading] = useState(true);
   const [currentClinic, setCurrentClinic] = useState<IClinic | null>();
@@ -126,23 +129,68 @@ export default function AppointmentModal() {
   const { locale } = useLocale();
 
   useEffect(() => {
-    fetch("http://localhost:8000/clinic")
-      .then((res) => res.json())
-      .then((data) => {
-        setClinics(data);
+    const fetchData = cache(async () => {
+      try {
+        const res: IClinic[] = await fetchClinicsApi();
+        setClinics(res);
+      } catch (err) {
+        throw new Error(`Error while trying to fetch clinics, error=${err}`);
+      } finally {
         setClinicsLoading(false);
-      });
+      }
+    });
+
+    fetchData();
   }, []);
 
-  const onFormSubmit = (values: z.infer<typeof formSchema>) => {
-    console.log(values);
+  const convertToDateTime = (dateStr: string, timeStr: string): Date => {
+    const date = new Date(dateStr);
+
+    if (isNaN(date.getTime())) {
+      throw new Error("Invalid Date");
+    }
+
+    const [hours, minutes] = timeStr.split(":").map(Number);
+
+    date.setHours(hours, minutes, 0, 0);
+
+    return date;
+  };
+
+  const onFormSubmit = async (values: z.infer<typeof formSchema>) => {
+    const time = convertToDateTime(
+      values.appointmentDate.toString(),
+      values.appointmentHour,
+    );
+    console.log(values.appointmentDate);
+    console.log(values.appointmentHour);
+    console.log(time);
+    if (!values.clinic || !values.plan || !time) {
+      toast({
+        className: cn(
+          "top-0 right-0 flex fixed md:max-w-[420px] md:top-4 md:right-4",
+        ),
+        title: "ERROR:",
+        description: <p>{JSON.stringify(values)}</p>,
+      });
+      return;
+    }
+    const scheduleResponse = await scheduleAppointmentApi({
+      clinic: values.clinic,
+      plan: values.plan,
+      time: time,
+    });
+
+    console.log(scheduleResponse);
+
+    setModalOpen(false);
+
     toast({
-      title: "You submitted the following values:",
-      description: (
-        <pre className="mt-2 w-[340px] rounded-md bg-slate-950 p-4">
-          <code className="text-white">{JSON.stringify(values, null, 2)}</code>
-        </pre>
+      className: cn(
+        "top-0 right-0 flex fixed md:max-w-[420px] md:top-4 md:right-4",
       ),
+      title: "You submitted the following values:",
+      description: <p>{JSON.stringify(values)}</p>,
     });
   };
 
@@ -271,10 +319,6 @@ export default function AppointmentModal() {
     setHourInputDisabled(false);
   };
 
-  const handleAppointmentDateChange = (date: DateValue) => {
-    loadAvailableHours(date);
-  };
-
   const handlePlanSelectChange = async (id: string | number) => {
     const plan = plans.find((plan) => {
       return id == plan.id;
@@ -319,9 +363,9 @@ export default function AppointmentModal() {
   };
 
   return (
-    <Dialog>
+    <Dialog open={modalOpen} onOpenChange={setModalOpen}>
       <DialogTrigger asChild>
-        <Button className="px-6 py-4 text-[13px] text-white font-black bg-gradient-to-r from-[#268a7b] to-[#0defca] hover:shadow-lg rounded-sm">
+        <Button className="px-6 py-4 text-[13px] text-white font -black bg-gradient-to-r from-[#268a7b] to-[#0defca] hover:shadow-lg rounded-sm">
           AGENDAR AGORA
         </Button>
       </DialogTrigger>
@@ -633,15 +677,13 @@ export default function AppointmentModal() {
                     Close
                   </Button>
                 </DialogClose>
-                <DialogClose asChild>
-                  <Button
-                    className="bg-emerald-700"
-                    type="submit"
-                    variant="default"
-                  >
-                    Agendar
-                  </Button>
-                </DialogClose>
+                <Button
+                  className="bg-emerald-700"
+                  type="submit"
+                  variant="default"
+                >
+                  Agendar
+                </Button>
               </DialogFooter>
             </form>
           </Form>
