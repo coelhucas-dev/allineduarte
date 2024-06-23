@@ -31,10 +31,13 @@ export default function Footer() {
           </Link>
         </div>
       </div>
-      <div className="flex z-10 m-auto px-2 md:w-[82%] lg:w-[60%]">
+      <div className="block z-10 m-auto px-2 md:w-[82%] lg:w-[60%]">
         <p className="mt-2 text-[13px] text-center text-slate-400">
           Utilizamos scripts de rastreamento de terceiros para obter informações
           sobre a forma como os utilizadores interagem com o nosso site
+        </p>
+        <p className="mt-2 text-[13px] text-center text-slate-400">
+          Copyright © 2024 CoelhoDev. Todos os direitos reservados.
         </p>
       </div>
     </footer>
