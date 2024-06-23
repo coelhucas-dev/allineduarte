@@ -1,11 +1,11 @@
 "use client";
 
-// import { Spinner } from "@nextui-org/react";
 import { cache, useEffect, useState } from "react";
 import { IClinic } from "@/types/clinic.type";
 import Card from "../card";
 import { fetchClinicsApi } from "@/lib/api.client";
 import Image from "next/image";
+import { isEmpty } from "lodash"
 
 export default function Clinics() {
   const [clinics, setClinics] = useState<IClinic[]>([]);
@@ -23,10 +23,9 @@ export default function Clinics() {
       }
     });
 
-    fetchData();
+    fetchData().then();
   }, []);
 
-  // if (isLoading) return <Spinner color="default" size="md" />;
   if (isLoading)
     return (
       <Image
@@ -37,10 +36,10 @@ export default function Clinics() {
         height="64"
       />
     );
-  if (!clinics) return <p>No profile data</p>;
+  if (!clinics || isEmpty(clinics)) return <p className={"text-white"}>Não foi possível carregar as clínicas disponíveis, por favor tente novamente mais tarde!</p>;
 
   return (
-    <div className="flex">
+    <div className="flex flex-col md:flex-row">
       {clinics.map((clinic: IClinic) => (
         <Card
           key={clinic.id}
