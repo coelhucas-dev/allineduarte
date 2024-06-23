@@ -59,8 +59,6 @@ import {
 import { format } from "date-fns";
 import { CalendarIcon } from "lucide-react";
 import { Calendar } from "@/components/ui/calendar";
-import { phone } from 'phone';
-
 
 const countryCodes = [
   {
@@ -69,9 +67,6 @@ const countryCodes = [
     country: "Brasil",
   },
 ];
-
-const phoneRegex = /^(?:\d{2}\s?)?\d{2}\s?\d{4}\s?\d{4}$/;
-
 
 interface IHour {
   hour: number;
@@ -98,12 +93,7 @@ const formSchema: any = z.object({
   monthOfBirth: z.string(),
   yearOfBirth: z.string(),
   countryCode: z.string(),
-  phoneNumber: z
-      .string()
-      .min(8)
-      .refine(value => phoneRegex.test(value), {
-        message: 'Por favor, digite um número de telefone válido no formato DDD-XXXX-XXXX.',
-      }),
+  phoneNumber: z.string().min(8),
   clinic: z.string(),
   plan: z.string(),
   appointmentDate: z.date(),
@@ -144,13 +134,23 @@ export default function AppointmentModal() {
 
   const { locale } = useLocale();
 
+  const clearStates = () => {
+    setModalOpen(false);
+    setPlanInputDisabled(true);
+    setCurrentPlan(null);
+    setHourInputDisabled(true);
+    setAvailableHours([]);
+    setAppointmentDateDisabled(true);
+    setAppointments([]);
+  };
+
   useEffect(() => {
     const fetchData = cache(async () => {
       try {
         const res: IClinic[] = await fetchClinicsApi();
         setClinics(res);
       } catch (err) {
-        console.log(err)
+        console.log(err);
       } finally {
         setClinicsLoading(false);
       }
@@ -174,7 +174,7 @@ export default function AppointmentModal() {
   };
 
   const onFormSubmit = async (values: z.infer<typeof formSchema>) => {
-    console.log(values)
+    console.log(values);
     const time = convertToDateTime(
       values.appointmentDate.toString(),
       values.appointmentHour,
@@ -210,7 +210,7 @@ export default function AppointmentModal() {
     });
 
     setModalOpen(false);
-
+    clearStates();
     toast({
       className: cn(
         "top-0 right-0 flex fixed md:max-w-[420px] md:top-4 md:right-4",
@@ -260,7 +260,9 @@ export default function AppointmentModal() {
           "top-0 right-0 flex fixed md:max-w-[420px] md:top-4 md:right-4",
         ),
         title: "ERRO",
-        description: <p>{"Não foi possível carregar os horários disponíveis"}</p>,
+        description: (
+          <p>{"Não foi possível carregar os horários disponíveis"}</p>
+        ),
         variant: "destructive",
       });
       return;
@@ -300,15 +302,29 @@ export default function AppointmentModal() {
       return;
     }
     let unavailableHours: IHour[] = [];
+    console.log(appointments);
     appointments.map((appointment: IScheduled) => {
       let appointmentTime = parseAbsolute(
         new Date(appointment.appointment.time).toISOString(),
         getLocalTimeZone(),
       );
       if (isSameDay(appointmentTime, date)) {
+        let appointmentDuration = appointment.plan.duration;
+        let appointmentDurationMinute = (appointmentDuration + "").split(
+          ".",
+        )[1];
+
+        if (appointmentDurationMinute != "0")
+          if (!["00", "0"].includes(appointmentDurationMinute)) {
+            unavailableHours.push({
+              hour: appointmentTime.hour + 1,
+              minute: 0,
+              disabled: true,
+            });
+          }
         unavailableHours.push({
           hour: appointmentTime.hour,
-          minute: appointmentTime.minute,
+          minute: 0,
           disabled: true,
         });
       }
@@ -417,361 +433,380 @@ export default function AppointmentModal() {
         <div className="flex items-center space-x-2">
           <Form {...form}>
             <form
-                onSubmit={form.handleSubmit(onFormSubmit)}
-                className="space-y-3 w-full"
+              onSubmit={form.handleSubmit(onFormSubmit)}
+              className="space-y-3 w-full"
             >
               <FormField
-                  control={form.control}
-                  name="fullName"
-                  render={({field}) => (
-                      <FormItem className="space-y-0 text-gray-700">
-                        <FormLabel>Nome Completo</FormLabel>
-                        <FormControl>
-                          <Input
-                              id="fullName"
-                              required
-                              autoFocus
-                              placeholder="Digite seu nome completo"
-                              className="rounded-sm w-full"
-                              {...field}
-                          />
-                        </FormControl>
-                      </FormItem>
-                  )}
+                control={form.control}
+                name="fullName"
+                render={({ field }) => (
+                  <FormItem className="space-y-0 text-gray-700">
+                    <FormLabel>Nome Completo</FormLabel>
+                    <FormControl>
+                      <Input
+                        id="fullName"
+                        required
+                        autoFocus
+                        placeholder="Digite seu nome completo"
+                        className="rounded-sm w-full"
+                        {...field}
+                      />
+                    </FormControl>
+                  </FormItem>
+                )}
               />
               <FormField
-                  control={form.control}
-                  name={"email"}
-                  render={({field}) => (
-                      <FormItem className="space-y-0 text-gray-700">
-                        <FormLabel>Email</FormLabel>
-                        <FormControl>
-                          <Input
-                              id="email"
-                              required
-                              autoFocus
-                              placeholder="Digite seu melhor email"
-                              className="rounded-sm w-full"
-                              {...field}
-                          />
-                        </FormControl>
-                      </FormItem>
-                  )}
+                control={form.control}
+                name={"email"}
+                render={({ field }) => (
+                  <FormItem className="space-y-0 text-gray-700">
+                    <FormLabel>Email</FormLabel>
+                    <FormControl>
+                      <Input
+                        id="email"
+                        required
+                        autoFocus
+                        placeholder="Digite seu melhor email"
+                        className="rounded-sm w-full"
+                        {...field}
+                      />
+                    </FormControl>
+                  </FormItem>
+                )}
               />
               <div>
-              <div className="mt-1 text-gray-700">
-                <FormLabel>Data de nascimento</FormLabel>
-              </div>
-              <div className="flex space-x-1 gap-2 space-y-0 w-full">
-                <FormField
+                <div className="mt-1 text-gray-700">
+                  <FormLabel>Data de nascimento</FormLabel>
+                </div>
+                <div className="flex space-x-1 gap-2 space-y-0 w-full">
+                  <FormField
                     control={form.control}
                     name={"dayOfBirth"}
-                    render={({field}) => (
-                        <FormItem className="space-y-2 text-gray-700 w-[33%]">
-                          <FormControl>
-                            <Select onValueChange={(value) => field.onChange(value)}>
-                              <SelectTrigger className="w-full">
-                                <SelectValue placeholder="Dia"/>
-                              </SelectTrigger>
-                              <SelectContent>
-                                <SelectGroup>
-                                  {Array.from({length: 31}, (_, i) => i + 1).map((day) =>
-                                      (
-                                          <SelectItem key={day}
-                                                      value={day < 10 ? `0${day.toString()}` : day.toString()}>
-                                            {day}
-                                          </SelectItem>
-                                      ))
-                                  }
-                                </SelectGroup>
-                              </SelectContent>
-                            </Select>
-                          </FormControl>
-                        </FormItem>
+                    render={({ field }) => (
+                      <FormItem className="space-y-2 text-gray-700 w-[33%]">
+                        <FormControl>
+                          <Select
+                            onValueChange={(value) => field.onChange(value)}
+                          >
+                            <SelectTrigger className="w-full">
+                              <SelectValue placeholder="Dia" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectGroup>
+                                {Array.from(
+                                  { length: 31 },
+                                  (_, i) => i + 1,
+                                ).map((day) => (
+                                  <SelectItem
+                                    key={day}
+                                    value={
+                                      day < 10
+                                        ? `0${day.toString()}`
+                                        : day.toString()
+                                    }
+                                  >
+                                    {day}
+                                  </SelectItem>
+                                ))}
+                              </SelectGroup>
+                            </SelectContent>
+                          </Select>
+                        </FormControl>
+                      </FormItem>
                     )}
-                />
+                  />
 
-                <FormField
+                  <FormField
                     control={form.control}
                     name={"monthOfBirth"}
-                    render={({field}) => (
-                        <FormItem className={"space-y-2 text-gray-700 w-[33%]"}>
-                          <FormControl>
-                            <Select onValueChange={(value) => field.onChange(value)}>
-                              <SelectTrigger className="w-full">
-                                <SelectValue placeholder="Mês"/>
-                              </SelectTrigger>
-                              <SelectContent>
-                                <SelectGroup>
-                                  <SelectItem value="01">Janeiro</SelectItem>
-                                  <SelectItem value="02">Fevereiro</SelectItem>
-                                  <SelectItem value="03">Março</SelectItem>
-                                  <SelectItem value="04">Abril</SelectItem>
-                                  <SelectItem value="05">Maio</SelectItem>
-                                  <SelectItem value="06">Junho</SelectItem>
-                                  <SelectItem value="07">Julho</SelectItem>
-                                  <SelectItem value="08">Agosto</SelectItem>
-                                  <SelectItem value="09">Setembro</SelectItem>
-                                  <SelectItem value="10">Outubro</SelectItem>
-                                  <SelectItem value="11">Novembro</SelectItem>
-                                  <SelectItem value="12">Dezembro</SelectItem>
-                                </SelectGroup>
-                              </SelectContent>
-                            </Select>
-                          </FormControl>
-                        </FormItem>
-                    )}
-                />
-                <FormField
-                    control={form.control}
-                    name={"yearOfBirth"}
-                    render={({field}) => (
+                    render={({ field }) => (
                       <FormItem className={"space-y-2 text-gray-700 w-[33%]"}>
                         <FormControl>
-                            <Select onValueChange={(value) => field.onChange(value)}>
-                              <SelectTrigger className="w-full">
-                                <SelectValue placeholder="Ano"/>
-                              </SelectTrigger>
-                              <SelectContent>
-                                <SelectGroup>
-                                  {Array.from({length: 120}, (_, i) => new Date().getFullYear() - i).map((year) => (
-                                      <SelectItem key={year} value={year.toString()}>
-                                        {year}
-                                      </SelectItem>
-                                  ))}
-                                </SelectGroup>
-                              </SelectContent>
-                            </Select>
-                          </FormControl>
+                          <Select
+                            onValueChange={(value) => field.onChange(value)}
+                          >
+                            <SelectTrigger className="w-full">
+                              <SelectValue placeholder="Mês" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectGroup>
+                                <SelectItem value="01">Janeiro</SelectItem>
+                                <SelectItem value="02">Fevereiro</SelectItem>
+                                <SelectItem value="03">Março</SelectItem>
+                                <SelectItem value="04">Abril</SelectItem>
+                                <SelectItem value="05">Maio</SelectItem>
+                                <SelectItem value="06">Junho</SelectItem>
+                                <SelectItem value="07">Julho</SelectItem>
+                                <SelectItem value="08">Agosto</SelectItem>
+                                <SelectItem value="09">Setembro</SelectItem>
+                                <SelectItem value="10">Outubro</SelectItem>
+                                <SelectItem value="11">Novembro</SelectItem>
+                                <SelectItem value="12">Dezembro</SelectItem>
+                              </SelectGroup>
+                            </SelectContent>
+                          </Select>
+                        </FormControl>
                       </FormItem>
-                      )}
-                    />
-              </div>
-              </div>
-              <div className="flex space-x-2">
-                  <FormField
-                      control={form.control}
-                      name="countryCode"
-                      render={({field}) => (
-                          <FormItem className="space-y-0 text-gray-700 w-[45%]">
-                            <FormLabel>Código de país</FormLabel>
-                            <FormControl>
-                              <Select
-                                  onValueChange={(value) => {
-                                    return field.onChange(value);
-                                  }}
-                                  defaultValue={field.value}
-                              >
-                                <FormControl>
-                                  <SelectTrigger>
-                                    <SelectValue placeholder="País"/>
-                                  </SelectTrigger>
-                                </FormControl>
-                                <SelectContent>
-                                  {countryCodes.map((countryCode) => (
-                                      <SelectItem
-                                          key={countryCode.key}
-                                          value={countryCode.code}
-                                      >
-                                        {countryCode.code} | {countryCode.country}
-                                      </SelectItem>
-                                  ))}
-                                </SelectContent>
-                              </Select>
-                            </FormControl>
-                          </FormItem>
-                      )}
+                    )}
                   />
                   <FormField
-                      control={form.control}
-                      name="phoneNumber"
-                      render={({field}) => (
-                          <FormItem className="space-y-0 text-gray-700 w-[55%]">
-                            <FormLabel>Número de celular</FormLabel>
-                            <FormControl>
-                              <Input
-                                  id={"phoneNumber"}
-                                  required
-                                  autoFocus
-                                  placeholder="Digite seu número"
-                                  className="rounded-sm w-full"
-                                  {...field}
-                              />
-                            </FormControl>
-                          </FormItem>
-                      )}
+                    control={form.control}
+                    name={"yearOfBirth"}
+                    render={({ field }) => (
+                      <FormItem className={"space-y-2 text-gray-700 w-[33%]"}>
+                        <FormControl>
+                          <Select
+                            onValueChange={(value) => field.onChange(value)}
+                          >
+                            <SelectTrigger className="w-full">
+                              <SelectValue placeholder="Ano" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectGroup>
+                                {Array.from(
+                                  { length: 120 },
+                                  (_, i) => new Date().getFullYear() - i,
+                                ).map((year) => (
+                                  <SelectItem
+                                    key={year}
+                                    value={year.toString()}
+                                  >
+                                    {year}
+                                  </SelectItem>
+                                ))}
+                              </SelectGroup>
+                            </SelectContent>
+                          </Select>
+                        </FormControl>
+                      </FormItem>
+                    )}
                   />
                 </div>
+              </div>
+              <div className="flex space-x-2">
                 <FormField
-                    control={form.control}
-                    name="clinic"
-                    render={({field}) => (
-                        <FormItem className="space-y-0 text-gray-700 ">
-                          <FormLabel>Selecione uma clínica</FormLabel>
+                  control={form.control}
+                  name="countryCode"
+                  render={({ field }) => (
+                    <FormItem className="space-y-0 text-gray-700 w-[45%]">
+                      <FormLabel>Código de país</FormLabel>
+                      <FormControl>
+                        <Select
+                          onValueChange={(value) => {
+                            return field.onChange(value);
+                          }}
+                          defaultValue={field.value}
+                        >
                           <FormControl>
-                            <Select
-                                onValueChange={(value) => {
-                                  handleClinicSelectChange(value).then();
-                                  return field.onChange(value);
-                                }}
-                            >
-                              <FormControl>
-                                <SelectTrigger disabled={clinicsLoading}>
-                                  <SelectValue placeholder="Clínica"/>
-                                </SelectTrigger>
-                              </FormControl>
-                              <SelectContent>
-                                {clinics.map((clinic) => (
-                                    <SelectItem key={clinic.id} value={`${clinic.id}`}>
-                                      {clinic.name} - {clinic.address2}
-                                    </SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
+                            <SelectTrigger>
+                              <SelectValue placeholder="País" />
+                            </SelectTrigger>
                           </FormControl>
-                        </FormItem>
-                    )}
+                          <SelectContent>
+                            {countryCodes.map((countryCode) => (
+                              <SelectItem
+                                key={countryCode.key}
+                                value={countryCode.code}
+                              >
+                                {countryCode.code} | {countryCode.country}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </FormControl>
+                    </FormItem>
+                  )}
                 />
                 <FormField
-                    control={form.control}
-                    name="plan"
-                    render={({field}) => (
-                        <FormItem className="space-y-0 text-gray-700 ">
-                          <FormLabel>Selecione um plano</FormLabel>
-                          <FormControl>
-                            <Select
-                                onValueChange={(value) => {
-                                  handlePlanSelectChange(value).then();
-                                  return field.onChange(value);
-                                }}
+                  control={form.control}
+                  name="phoneNumber"
+                  render={({ field }) => (
+                    <FormItem className="space-y-0 text-gray-700 w-[55%]">
+                      <FormLabel>Número de celular</FormLabel>
+                      <FormControl>
+                        <Input
+                          id={"phoneNumber"}
+                          required
+                          autoFocus
+                          placeholder="Digite seu número"
+                          className="rounded-sm w-full"
+                          {...field}
+                        />
+                      </FormControl>
+                    </FormItem>
+                  )}
+                />
+              </div>
+              <FormField
+                control={form.control}
+                name="clinic"
+                render={({ field }) => (
+                  <FormItem className="space-y-0 text-gray-700 ">
+                    <FormLabel>Selecione uma clínica</FormLabel>
+                    <FormControl>
+                      <Select
+                        onValueChange={(value) => {
+                          handleClinicSelectChange(value).then();
+                          return field.onChange(value);
+                        }}
+                      >
+                        <FormControl>
+                          <SelectTrigger disabled={clinicsLoading}>
+                            <SelectValue placeholder="Clínica" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          {clinics.map((clinic) => (
+                            <SelectItem key={clinic.id} value={`${clinic.id}`}>
+                              {clinic.name} - {clinic.address2}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </FormControl>
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="plan"
+                render={({ field }) => (
+                  <FormItem className="space-y-0 text-gray-700 ">
+                    <FormLabel>Selecione um plano</FormLabel>
+                    <FormControl>
+                      <Select
+                        onValueChange={(value) => {
+                          handlePlanSelectChange(value).then();
+                          return field.onChange(value);
+                        }}
+                      >
+                        <FormControl>
+                          <SelectTrigger disabled={planInputDisabled}>
+                            <SelectValue placeholder="Plano" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          {plans.map((plan) => (
+                            <SelectItem key={plan.id} value={`${plan.id}`}>
+                              {plan.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </FormControl>
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name={"appointmentDate"}
+                render={({ field }) => (
+                  <FormItem className="flex flex-col space-y-1 text-gray-700">
+                    <FormLabel>Data de agendamento</FormLabel>
+                    <Popover>
+                      <PopoverTrigger
+                        asChild
+                        disabled={appointmentDateDisabled}
+                      >
+                        <FormControl>
+                          <Button
+                            variant={"outline"}
+                            className={cn(
+                              "w-full pl-3 text-left font-normal",
+                              !field.value && "text-muted-foreground",
+                            )}
+                          >
+                            {field.value ? (
+                              format(field.value, "PPP")
+                            ) : (
+                              <span>Escolha uma data</span>
+                            )}
+                            <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                          </Button>
+                        </FormControl>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-auto p-0" align="start">
+                        <Calendar
+                          mode="single"
+                          selected={field.value}
+                          onSelect={(value) => {
+                            if (!value) {
+                              unloadAvailableHours();
+                              return field.onChange(null);
+                            }
+                            loadAvailableHours(
+                              parseAbsoluteToLocal(value.toISOString()),
+                            );
+                            return field.onChange(value);
+                          }}
+                          disabled={(date) =>
+                            isDateUnavailable(
+                              parseAbsoluteToLocal(date.toISOString()),
+                            ) || date < new Date()
+                          }
+                          initialFocus
+                        />
+                      </PopoverContent>
+                    </Popover>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="appointmentHour"
+                render={({ field }) => (
+                  <FormItem className="space-y-0 text-gray-700 ">
+                    <FormLabel>Selecione o horário para a consulta</FormLabel>
+                    <FormControl>
+                      <Select onValueChange={field.onChange}>
+                        <FormControl>
+                          <SelectTrigger disabled={hourInputDisabled}>
+                            <SelectValue placeholder="Hoário da consulta" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          {availableHours.map((hour) => (
+                            <SelectItem
+                              key={formatToClockFormat(hour.hour, hour.minute)}
+                              disabled={hour.disabled}
+                              value={formatToClockFormat(
+                                hour.hour,
+                                hour.minute,
+                              )}
                             >
-                              <FormControl>
-                                <SelectTrigger disabled={planInputDisabled}>
-                                  <SelectValue placeholder="Plano"/>
-                                </SelectTrigger>
-                              </FormControl>
-                              <SelectContent>
-                                {plans.map((plan) => (
-                                    <SelectItem key={plan.id} value={`${plan.id}`}>
-                                      {plan.name}
-                                    </SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                          </FormControl>
-                        </FormItem>
-                    )}
-                />
-                <FormField
-                    control={form.control}
-                    name={"appointmentDate"}
-                    render={({field}) => (
-                        <FormItem className="flex flex-col space-y-1 text-gray-700">
-                          <FormLabel>Data de agendamento</FormLabel>
-                          <Popover>
-                            <PopoverTrigger
-                                asChild
-                                disabled={appointmentDateDisabled}
-                            >
-                              <FormControl>
-                                <Button
-                                    variant={"outline"}
-                                    className={cn(
-                                        "w-full pl-3 text-left font-normal",
-                                        !field.value && "text-muted-foreground",
-                                    )}
-                                >
-                                  {field.value ? (
-                                      format(field.value, "PPP")
-                                  ) : (
-                                      <span>Escolha uma data</span>
-                                  )}
-                                  <CalendarIcon className="ml-auto h-4 w-4 opacity-50"/>
-                                </Button>
-                              </FormControl>
-                            </PopoverTrigger>
-                            <PopoverContent className="w-auto p-0" align="start">
-                              <Calendar
-                                  mode="single"
-                                  selected={field.value}
-                                  onSelect={(value) => {
-                                    if (!value) {
-                                      unloadAvailableHours();
-                                      return field.onChange(null);
-                                    }
-                                    loadAvailableHours(
-                                        parseAbsoluteToLocal(value.toISOString()),
-                                    );
-                                    return field.onChange(value);
-                                  }}
-                                  disabled={(date) =>
-                                      isDateUnavailable(
-                                          parseAbsoluteToLocal(date.toISOString()),
-                                      ) || date < new Date()
-                                  }
-                                  initialFocus
-                              />
-                            </PopoverContent>
-                          </Popover>
-                          <FormMessage/>
-                        </FormItem>
-                    )}
-                />
-                <FormField
-                    control={form.control}
-                    name="appointmentHour"
-                    render={({field}) => (
-                        <FormItem className="space-y-0 text-gray-700 ">
-                          <FormLabel>Selecione o horário para a consulta</FormLabel>
-                          <FormControl>
-                            <Select onValueChange={field.onChange}>
-                              <FormControl>
-                                <SelectTrigger disabled={hourInputDisabled}>
-                                  <SelectValue placeholder="Hoário da consulta"/>
-                                </SelectTrigger>
-                              </FormControl>
-                              <SelectContent>
-                                {availableHours.map((hour) => (
-                                    <SelectItem
-                                        key={formatToClockFormat(hour.hour, hour.minute)}
-                                        disabled={hour.disabled}
-                                        value={formatToClockFormat(
-                                            hour.hour,
-                                            hour.minute,
-                                        )}
-                                    >
-                                      {hour.disabled ? (
-                                          <del>
-                                            {formatToClockFormat(hour.hour, hour.minute)}
-                                          </del>
-                                      ) : (
-                                          <>
-                                            {formatToClockFormat(hour.hour, hour.minute)}
-                                          </>
-                                      )}
-                                    </SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                          </FormControl>
-                        </FormItem>
-                    )}
-                />
+                              {hour.disabled ? (
+                                <del>
+                                  {formatToClockFormat(hour.hour, hour.minute)}
+                                </del>
+                              ) : (
+                                <>
+                                  {formatToClockFormat(hour.hour, hour.minute)}
+                                </>
+                              )}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </FormControl>
+                  </FormItem>
+                )}
+              />
 
-                <DialogFooter className="sm:justify-end gap-2">
-                  <DialogClose asChild>
-                    <Button type="button" variant="secondary">
-                      Fechar
-                    </Button>
-                  </DialogClose>
-                  <Button
-                      className="bg-emerald-700"
-                      type="submit"
-                      variant="default"
-                  >
-                    Agendar
+              <DialogFooter className="sm:justify-end gap-2">
+                <DialogClose asChild>
+                  <Button type="button" variant="secondary">
+                    Fechar
                   </Button>
-                </DialogFooter>
+                </DialogClose>
+                <Button
+                  className="bg-emerald-700"
+                  type="submit"
+                  variant="default"
+                >
+                  Agendar
+                </Button>
+              </DialogFooter>
             </form>
           </Form>
         </div>
