@@ -7,3 +7,4 @@ export type {
   IGetScheduledResponse,
   ISchedule,
 } from "./schedule.type";
+export type { IPatient, IPatientResponse } from './patient.type';

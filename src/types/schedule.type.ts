@@ -17,5 +17,6 @@ export type IGetScheduledResponse = {
 export type ISchedule = {
   clinic: string;
   plan: string;
+  patient: string;
   time: Date;
 };
