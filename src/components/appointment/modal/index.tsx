@@ -174,7 +174,6 @@ export default function AppointmentModal() {
   };
 
   const onFormSubmit = async (values: z.infer<typeof formSchema>) => {
-    console.log(values);
     const time = convertToDateTime(
       values.appointmentDate.toString(),
       values.appointmentHour,
@@ -302,7 +301,6 @@ export default function AppointmentModal() {
       return;
     }
     let unavailableHours: IHour[] = [];
-    console.log(appointments);
     appointments.map((appointment: IScheduled) => {
       let appointmentTime = parseAbsolute(
         new Date(appointment.appointment.time).toISOString(),
@@ -425,7 +423,7 @@ export default function AppointmentModal() {
           AGENDAR AGORA
         </Button>
       </DialogTrigger>
-      <DialogContent className="sm:max-w-screen-sm max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-screen-sm  max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Agende agora sua consulta!</DialogTitle>
           <DialogDescription>Faça aqui seu pré agendamento.</DialogDescription>
